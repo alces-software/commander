@@ -290,6 +290,20 @@ module Commander
     end
 
     ##
+    # Remove hidden commands. Used by the general help
+    def remove_hidden_commands
+      commands.reject! { |k, v| !!v.hidden }
+    end
+
+    ##
+    # Limit commands to those which are subcommands of the one that is active
+    def limit_commands_to_subcommands(command)
+      commands.reject! { |k, v|
+        (k.to_s == command.name) ? true : !k.to_s.start_with?("#{command.name} ")
+      }
+    end
+
+    ##
     # Creates default commands such as 'help' which is
     # essentially the same as using the --help switch.
 
@@ -302,6 +316,7 @@ module Commander
         c.when_called do |args, _options|
           UI.enable_paging if program(:help_paging)
           if args.empty?
+            remove_hidden_commands
             say help_formatter.render
           else
             command = command args.join(' ')
@@ -310,7 +325,12 @@ module Commander
             rescue InvalidCommandError => e
               abort "#{e}. Use --help for more information"
             end
-            say help_formatter.render_command(command)
+            if command.sub_command_group
+              limit_commands_to_subcommands(command)
+              say help_formatter.render_subcommand(command)
+            else
+              say help_formatter.render_command(command)
+            end
           end
         end
       end
